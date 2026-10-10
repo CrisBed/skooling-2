@@ -511,6 +511,7 @@ export class NotebookManager {
   // restano gli stessi: le coordinate del disegno sono relative al foglio
   // visibile, quindi si continua a scrivere nel punto giusto anche ingranditi.
   gestoDueDita(fase, touches) {
+    if (fase === 'cancel') { this.pinch = null; this.ultimoPunto = null; this.swipe.annulla(); return; }
     if (this.overview) return;
     const box = document.querySelector('#notebook-pages');
     const dita = ditaAppoggiate(touches);
