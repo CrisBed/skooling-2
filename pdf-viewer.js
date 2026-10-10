@@ -461,7 +461,6 @@ class Reader {
   }
 
   handleTouchGesture(phase, event, touches) {
-    if (phase === 'cancel') { this.pinch = null; this.ultimoPunto = null; this.lastTap = 0; this.swipe.annulla(); this.azzeraAnteprima(); return; }
     const dita = ditaAppoggiate(touches);
     if (phase === 'start') {
       this.swipe.inizio(touches);

@@ -598,7 +598,7 @@ export function spostaElemento(element, originale, dx, dy) {
 // possono cadere su fogli diversi (doppia pagina) e devono comunque contare
 // come un solo gesto. `touches` tiene i tocchi vivi in coordinate schermo.
 export function creaGestoCondiviso() {
-  return { touches: new Map(), attivo: false, fogli: [], penne: new Set(), palmi: new Set(), ultimaPenna: -Infinity };
+  return { touches: new Map(), attivo: false, fogli: [] };
 }
 
 // Fra i puntatori del gesto contano come dita solo quelle vere: in sola lettura
@@ -925,19 +925,6 @@ export class DrawingSurface {
   }
 
   pointerDown(event) {
-    if (event.pointerType === 'touch' && (this.gesto.penne.size || Date.now() - this.gesto.ultimaPenna < 150)) {
-      this.gesto.palmi.add(event.pointerId);
-      return;
-    }
-    if (event.pointerType === 'pen' && this.canDraw(event)) {
-      this.gesto.penne.add(event.pointerId);
-      this.gesto.ultimaPenna = Date.now();
-      for (const [id, point] of this.gesto.touches) if (point.tipo === 'touch') this.gesto.palmi.add(id);
-      this.gesto.touches.clear();
-      if (this.gesto.attivo) this.onTouchGesture('cancel', event, this.gesto.touches);
-      this.gesto.attivo = false;
-    }
-
     // Nella mappa del gesto entrano sempre le dita, perché il secondo dito deve
     // poter fermare un tratto e far partire l'ingrandimento, e ci entrano le
     // punte con cui in questo momento non si disegna, per esempio la penna in
@@ -1049,8 +1036,6 @@ export class DrawingSurface {
   }
 
   pointerMove(event) {
-    if (event.pointerType === 'touch' && (this.gesto.palmi.has(event.pointerId) || this.gesto.penne.size)) return;
-
     const point = this.pointFromEvent(event);
     if (this.gesto.touches.has(event.pointerId)) {
       this.gesto.touches.set(event.pointerId, { x: event.clientX, y: event.clientY, tipo: event.pointerType });
@@ -1098,11 +1083,6 @@ export class DrawingSurface {
   }
 
   pointerUp(event) {
-    if (event.pointerType === 'touch' && (this.gesto.palmi.has(event.pointerId) || this.gesto.penne.size)) {
-      this.gesto.palmi.delete(event.pointerId); this.gesto.touches.delete(event.pointerId); this.pointers.delete(event.pointerId); return;
-    }
-    if (event.pointerType === 'pen' && this.gesto.penne.delete(event.pointerId)) this.gesto.ultimaPenna = Date.now();
-
     const gesto = this.inGesto(event);
     if (gesto) this.onTouchGesture('end', event, this.gesto.touches);
     this.gesto.touches.delete(event.pointerId);
