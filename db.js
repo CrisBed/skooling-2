@@ -109,6 +109,36 @@ async function encodeValue(value) {
   return value;
 }
 
+export async function appendBackupValue(value, parts) {
+  if (value instanceof Blob) {
+    const prefix = `data:${value.type || 'application/octet-stream'};base64,`;
+    parts.push('{"__skoolingBlob":', JSON.stringify(prefix).slice(0, -1));
+    // Multiplo di tre: le porzioni base64 si possono concatenare senza padding intermedio.
+    const block = 196608;
+    for (let offset = 0; offset < value.size; offset += block) {
+      const bytes = new Uint8Array(await value.slice(offset, offset + block).arrayBuffer());
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+      parts.push(new Blob([btoa(binary)]));
+      await new Promise(requestAnimationFrameSafe);
+    }
+    parts.push('"}');
+  } else if (Array.isArray(value)) {
+    parts.push('[');
+    for (let i = 0; i < value.length; i++) { if (i) parts.push(','); await appendBackupValue(value[i], parts); }
+    parts.push(']');
+  } else if (value && typeof value === 'object') {
+    parts.push('{');
+    let first = true;
+    for (const [key, child] of Object.entries(value)) {
+      if (child === undefined) continue;
+      if (!first) parts.push(','); first = false;
+      parts.push(JSON.stringify(key), ':'); await appendBackupValue(child, parts);
+    }
+    parts.push('}');
+  } else parts.push(JSON.stringify(value) ?? 'null');
+}
+
 function decodeValue(value) {
   if (Array.isArray(value)) return value.map(decodeValue);
   if (value && typeof value === 'object') {
@@ -222,18 +252,23 @@ export const DB = {
   },
 
   async exportBackup(onProgress = () => {}) {
-    const stores = {};
-    for (let index = 0; index < STORE_NAMES.length; index += 1) {
-      stores[STORE_NAMES[index]] = await encodeValue(await this.getAll(STORE_NAMES[index]));
+    // Blob separati: niente stringa JSON gigantesca con tutti i libri in memoria.
+    const parts = ['{"formato":"skooling","versione":1,"creatoIl":', JSON.stringify(new Date().toISOString()), ',"stores":{'];
+    for (let index = 0; index < STORE_NAMES.length; index++) {
+      if (index) parts.push(',');
+      const name = STORE_NAMES[index];
+      parts.push(JSON.stringify(name), ':[');
+      const rows = await this.getAll(name);
+      for (let row = 0; row < rows.length; row++) {
+        if (row) parts.push(',');
+        await appendBackupValue(rows[row], parts);
+        onProgress((index + (row + 1) / rows.length) / STORE_NAMES.length);
+      }
+      parts.push(']');
       onProgress((index + 1) / STORE_NAMES.length);
     }
-    return new Blob([JSON.stringify({
-      formato: 'skooling',
-      versione: 1,
-      applicazione: 'skooling2',
-      creatoIl: new Date().toISOString(),
-      stores,
-    })], { type: 'application/x-skooling+json' });
+    parts.push('}}');
+    return new Blob(parts, { type: 'application/x-skooling+json' });
   },
 
   async importBackup(file, onProgress = () => {}) {

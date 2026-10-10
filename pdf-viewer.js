@@ -111,6 +111,8 @@ class Reader {
 
   bind() {
     document.querySelector('#close-reader').addEventListener('click', () => this.close());
+    document.querySelector('#focus-left-page').addEventListener('click', () => this.focusPage(0));
+    document.querySelector('#focus-right-page').addEventListener('click', () => this.focusPage(1));
     document.querySelector('#prev-page').addEventListener('click', () => this.goTo(this.indietro()));
     document.querySelector('#next-page').addEventListener('click', () => this.goTo(this.avanti()));
     document.querySelector('#reader-two-pages').addEventListener('click', () => this.toggleDoppia());
@@ -278,6 +280,14 @@ class Reader {
     await this.renderPage();
   }
 
+  focusPage(offset) {
+    const wrap = offset ? this.pageWrap2 : this.pageWrap;
+    if (wrap.hidden || !this.pdf) return;
+    const page = wrap.getBoundingClientRect();
+    const viewport = this.scroll.getBoundingClientRect();
+    this.scroll.scrollTo({ left: this.scroll.scrollLeft + page.left - viewport.left - 8, top: this.scroll.scrollTop });
+  }
+
   async toggleDoppia() {
     this.doppia = !this.doppia;
     const button = document.querySelector('#reader-two-pages');
@@ -357,6 +367,8 @@ class Reader {
     try {
       const destra = this.destra();
       this.pageWrap2.hidden = !destra;
+      document.querySelector('#focus-left-page').hidden = !destra;
+      document.querySelector('#focus-right-page').hidden = !destra;
       // Foglio nascosto: via anche il numero, altrimenti resta appeso quello
       // della coppia di prima e chi lo legge da fuori si sbaglia.
       if (!destra) delete this.pageWrap2.dataset.pagina;

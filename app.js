@@ -556,6 +556,7 @@ let aggiornamentoInSospeso = false;
 function applicaAggiornamento() {
   // Se c'è un libro o un quaderno aperto si aspetta: il lavoro è già salvato,
   // ma ricaricare sotto le mani mentre si scrive sarebbe sgradevole.
+  if (!document.querySelector('#progress-overlay').hidden) { aggiornamentoInSospeso = true; return; }
   if (document.body.classList.contains('workspace-open')) {
     aggiornamentoInSospeso = true;
     if (!schoolQuiet()) notify('Skooling si è aggiornato. La versione nuova parte appena chiudi il libro o il quaderno.');
@@ -566,7 +567,7 @@ function applicaAggiornamento() {
 }
 
 export function verificaAggiornamentoInSospeso() {
-  if (!aggiornamentoInSospeso || document.body.classList.contains('workspace-open')) return;
+  if (!aggiornamentoInSospeso || document.body.classList.contains('workspace-open') || !document.querySelector('#progress-overlay').hidden) return;
   aggiornamentoInSospeso = false;
   location.reload();
 }

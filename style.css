@@ -536,3 +536,18 @@ dialog::backdrop { background: rgb(13 25 53 / 48%); backdrop-filter: blur(5px); 
 
 .app-version-card { margin-bottom: 20px; }
 #app-version { margin-bottom: 0; color: var(--blue); font-size: 24px; font-weight: 750; }
+
+/* Schermo intero: comandi essenziali sempre disponibili. */
+.workspace.schermo-pieno .workspace-header { display:flex; min-height:52px; padding:6px 62px 6px 10px; flex-wrap:wrap; gap:6px; }
+.workspace.schermo-pieno .workspace-title, .workspace.schermo-pieno .workspace-header > .icon-button { display:none; }
+.workspace.schermo-pieno .workspace-actions > * { display:none; }
+.workspace.schermo-pieno .workspace-actions #reader-two-pages, .workspace.schermo-pieno .workspace-actions #notebook-two-pages { display:block; }
+.workspace.schermo-pieno .writing-bar { display:flex; padding:5px 10px; min-height:48px; }
+.workspace.schermo-pieno [data-writing-status], .workspace.schermo-pieno .paper-reference { display:none; }
+.workspace.schermo-pieno .page-controls { display:flex; min-height:54px; flex-wrap:wrap; gap:6px; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); }
+.workspace.schermo-pieno .page-controls .icon-button { width:42px; height:40px; }
+.workspace.schermo-pieno #notebook-delete-page { display:none; }
+/* Il margine automatico centra i fogli che entrano e parte dal bordo per quelli più larghi. */
+#pdf-scroll { display:block; }
+.pdf-pages { width:max-content; margin-inline:auto; justify-content:flex-start; }
+@media(max-width:600px) { .workspace.schermo-pieno .page-controls label { font-size:12px; } .workspace.schermo-pieno .page-controls .small-button { padding:0 8px; min-height:36px; } }
