@@ -1,4 +1,5 @@
 // Coordinamento dell'applicazione e interfaccia principale.
+import { schoolQuiet } from './routine-model.js';
 import { Routine } from './routine.js';
 import { Studio } from './studio.js';
 import { DB, createId } from './db.js';
@@ -557,10 +558,10 @@ function applicaAggiornamento() {
   // ma ricaricare sotto le mani mentre si scrive sarebbe sgradevole.
   if (document.body.classList.contains('workspace-open')) {
     aggiornamentoInSospeso = true;
-    notify('Skooling si è aggiornato. La versione nuova parte appena chiudi il libro o il quaderno.');
+    if (!schoolQuiet()) notify('Skooling si è aggiornato. La versione nuova parte appena chiudi il libro o il quaderno.');
     return;
   }
-  notify('Skooling si è aggiornato.');
+  if (!schoolQuiet()) notify('Skooling si è aggiornato.');
   setTimeout(() => location.reload(), 800);
 }
 
