@@ -1,6 +1,6 @@
 const API='https://www.googleapis.com/drive/v3/files';
 export class DriveAPI {
- constructor(token,fetcher=globalThis.fetch){this.token=token;this.fetcher=fetcher;this.cache=new Map();}
+ constructor(token,fetcher=globalThis.fetch.bind(globalThis)){this.token=token;this.fetcher=fetcher;this.cache=new Map();}
  async request(url,options={}){
   const response=await this.fetcher(url,{...options,headers:{...options.headers,Authorization:`Bearer ${this.token}`},signal:AbortSignal.timeout(45000)});
   if(response.status===401)throw Error('Accesso Google scaduto. Premi Ricollega Google.');
