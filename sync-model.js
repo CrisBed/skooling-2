@@ -34,3 +34,12 @@ export function mergeOperations(operations){
  return {records,heads,conflicts};
 }
 export function preserveBinary(local,remote){if(local instanceof Blob)return local;if(Array.isArray(remote))return remote.map((item,i)=>preserveBinary(local?.[i],item));if(remote&&typeof remote==='object'){const result={...remote};for(const[k,v]of Object.entries(local||{})){if(v instanceof Blob)result[k]=v;else if(remote[k]&&typeof remote[k]==='object')result[k]=preserveBinary(v,remote[k]);}return result;}return remote;}
+
+export function otherDeviceResolutions(conflicts,localDevice){
+ if(!localDevice||!conflicts.length)return [];
+ const remoteDevices=new Set(conflicts.flatMap(c=>c.versions.filter(v=>v.device!==localDevice).map(v=>v.device)));
+ if(remoteDevices.size!==1)return [];
+ const result=[];
+ for(const c of conflicts){const remote=c.versions.filter(v=>v.device!==localDevice);if(remote.length!==1||!c.versions.some(v=>v.device===localDevice))return [];result.push({key:c.key,id:remote[0].id});}
+ return result;
+}

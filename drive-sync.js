@@ -2,6 +2,7 @@ import { DB, createId } from './db.js';
 import { CLIENT_ID } from './drive-config.js';
 import { DriveAPI } from './drive-api.js';
 import { synchronize } from './sync-engine.js';
+import { otherDeviceResolutions } from './sync-model.js';
 
 let token='',expires=0,profile,drive,client,working=false,scriptPromise;
 const el=id=>document.getElementById(id);
@@ -16,9 +17,11 @@ async function render(){
  el('sync-now').disabled=!token||working;el('sync-disconnect').disabled=!token||working;
  el('sync-connect').disabled=!client||working;el('sync-connect').textContent=owner?'Ricollega Google':'Collega Google Drive';
  const list=el('sync-conflicts');list.replaceChildren();
+ const other=otherDeviceResolutions(saved?.conflicts||[],saved?.device);
+ if(other.length){const button=document.createElement('button');button.className='button secondary';button.textContent="Mantieni tutte le versioni dell’altro dispositivo";button.disabled=!token||working;button.onclick=async()=>{if(!confirm('Mantenere le versioni dell’altro dispositivo per tutti i conflitti? Le copie alternative saranno conservate su questo dispositivo.'))return;try{const archive=(await DB.get('impostazioni','sync-conflict-archive'))?.valore||[];await DB.put('impostazioni',{id:'sync-conflict-archive',valore:[...archive,...saved.conflicts.map(c=>({...c,savedAt:new Date().toISOString()}))]});await run(other);}catch(e){status(e.message);}};list.append(button);}
  for(const conflict of saved?.conflicts||[]){const box=document.createElement('div');box.className='sync-conflict';const[store,id]=JSON.parse(conflict.key);const title=document.createElement('strong');title.textContent=`Due versioni di ${store}: ${conflict.versions.find(v=>v.value)?.value?.titolo||id}`;box.append(title);
   const copy=document.createElement('p');copy.textContent='Le copie sono conservate. Scegli quale mantenere su tutti i dispositivi.';box.append(copy);
-  for(const variant of conflict.versions){const detail=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre'),button=document.createElement('button');summary.textContent=variant.value===null?'Eliminazione':`Versione del ${new Date(variant.at).toLocaleString('it-IT')}`;pre.textContent=variant.value===null?'Voce eliminata':JSON.stringify(variant.value,null,2);button.className='button secondary';button.textContent='Usa questa versione';button.disabled=!token||working;button.onclick=async()=>{if(!confirm('Usare questa versione su tutti i dispositivi? Le altre copie saranno conservate su questo dispositivo.'))return;try{const archive=(await DB.get('impostazioni','sync-conflict-archive'))?.valore||[];await DB.put('impostazioni',{id:'sync-conflict-archive',valore:[...archive,{...conflict,savedAt:new Date().toISOString()}]});await run([{key:conflict.key,id:variant.id}]);}catch(e){status(e.message);}};detail.append(summary,pre,button);box.append(detail);
+  for(const variant of conflict.versions){const detail=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre'),button=document.createElement('button');summary.textContent=variant.value===null?'Eliminazione':`${variant.device===saved.device?'Questo dispositivo':'Altro dispositivo'} · ${new Date(variant.at).toLocaleString('it-IT')}`;pre.textContent=variant.value===null?'Voce eliminata':JSON.stringify(variant.value,null,2);button.className='button secondary';button.textContent='Usa questa versione';button.disabled=!token||working;button.onclick=async()=>{if(!confirm('Usare questa versione su tutti i dispositivi? Le altre copie saranno conservate su questo dispositivo.'))return;try{const archive=(await DB.get('impostazioni','sync-conflict-archive'))?.valore||[];await DB.put('impostazioni',{id:'sync-conflict-archive',valore:[...archive,{...conflict,savedAt:new Date().toISOString()}]});await run([{key:conflict.key,id:variant.id}]);}catch(e){status(e.message);}};detail.append(summary,pre,button);box.append(detail);
   }list.append(box);
  }
 }
