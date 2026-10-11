@@ -180,12 +180,23 @@
       </section>
 
       <section id="impostazioni" class="view" aria-labelledby="settings-title">
-        <div class="view-heading"><div><p class="eyebrow">Tutto sul dispositivo</p><h1 id="settings-title">Impostazioni</h1><p class="subtitle">I tuoi dati restano soltanto qui.</p></div></div>
+        <div class="view-heading"><div><p class="eyebrow">Tutto sul dispositivo</p><h1 id="settings-title">Impostazioni</h1><p class="subtitle">Archivio sul dispositivo e sincronizzazione Google facoltativa.</p></div></div>
         <article class="settings-card app-version-card" aria-labelledby="version-title">
           <span class="card-label">Skooling</span><h2 id="version-title">Versione installata</h2>
           <p id="app-version" role="status">Controllo della versione…</p>
         </article>
         <div class="settings-grid">
+          <article class="settings-card" id="sync-card">
+            <span class="card-label">I miei dispositivi</span><h2>Google Drive</h2>
+            <p>Sincronizza scritte, quaderni, appunti testuali, compiti, risultati, orario e routine. I PDF, le foto e gli audio restano locali: collega lo stesso PDF su ogni dispositivo una sola volta.</p>
+            <p id="sync-account">Nessun account collegato</p><p id="sync-last" class="small-copy"></p>
+            <p id="sync-status" role="status">Controllo del collegamento…</p>
+            <div class="button-row"><button id="sync-connect" class="button primary" type="button" disabled>Collega Google Drive</button><button id="sync-now" class="button secondary" type="button" disabled>Sincronizza ora</button><button id="sync-disconnect" class="button secondary" type="button" disabled>Scollega</button></div>
+            <p class="small-copy">Serve lo stesso account su tutti i dispositivi. Il collegamento va rinnovato quando Google lo richiede. La sincronizzazione funziona con l’app aperta e fuori dalla scrittura; non sostituisce il backup.</p>
+            <div id="sync-conflicts"></div>
+            <details><summary>Configurazione tecnica</summary><label for="sync-client-id">ID client OAuth Google</label><input id="sync-client-id" type="text" autocomplete="off" placeholder="ID pubblico della configurazione"><button id="sync-save-config" class="button secondary" type="button">Salva configurazione</button><p class="small-copy">Solo l’identificatore pubblico. Non inserire password o segreti.</p></details>
+          </article>
+
           <article class="settings-card accent-card">
             <span class="card-label">Spazio</span><h2>Archivio locale</h2>
             <div class="storage-meter" aria-hidden="true"><span id="storage-bar"></span></div>
@@ -206,7 +217,7 @@
           </article>
           <article class="settings-card">
             <span class="card-label">Privacy</span><h2>Nessuno ti osserva</h2>
-            <p>Skooling non usa account, pubblicità, statistiche o servizi esterni. Funziona anche in modalità aereo.</p>
+            <p>Skooling non usa pubblicità o statistiche. Funziona anche in modalità aereo. Se colleghi Google, il lavoro scelto viene salvato nello spazio privato di Skooling sul tuo Drive. PDF, foto e audio restano sul dispositivo.</p>
           </article>
         </div>
       </section>

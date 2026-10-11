@@ -551,3 +551,7 @@ dialog::backdrop { background: rgb(13 25 53 / 48%); backdrop-filter: blur(5px); 
 #pdf-scroll { display:block; }
 .pdf-pages { width:max-content; margin-inline:auto; justify-content:flex-start; }
 @media(max-width:600px) { .workspace.schermo-pieno .page-controls label { font-size:12px; } .workspace.schermo-pieno .page-controls .small-button { padding:0 8px; min-height:36px; } }
+
+.sync-conflict { border: 1px solid var(--border, #ddd); border-radius: 12px; padding: 12px; margin-top: 12px; }
+.sync-conflict pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; font-size: .8rem; }
+#sync-client-id { width: 100%; box-sizing: border-box; margin: 8px 0; }

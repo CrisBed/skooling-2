@@ -1,5 +1,6 @@
+import { syncSnapshot, applySync } from './sync-storage.js';
 import { importBackupStaged } from './backup-import.js';
-// Persistenza locale di Skooling. Nessun dato lascia il dispositivo.
+// Persistenza locale. Drive è facoltativo e non trasferisce i PDF.
 export const DB_NAME = 'skooling2-db';
 export const DB_VERSION = 6;
 export const STORE_NAMES = [
@@ -214,6 +215,9 @@ export function selectBackupBooks(books, annotations, mode = 'completo') {
 }
 
 export const DB = {
+  async syncSnapshot() { return syncSnapshot(await openDatabase()); },
+  async applySync(expected, merged, profile, device, canApply) { return applySync(await openDatabase(), expected, merged, profile, device, canApply); },
+
   async init() {
     await openDatabase();
     return this;
@@ -272,7 +276,7 @@ export const DB = {
     const excluded = [...new Map([
       ...previous.filter(book => !present.has(book.id)), ...selected.excluded,
     ].map(book => [book.id, book])).values()];
-    const exportedSettings = settings.filter(item => item.id !== 'backup-libri-esclusi');
+    const exportedSettings = settings.filter(item => item.id !== 'backup-libri-esclusi' && !item.id.startsWith('sync-'));
     if (excluded.length) exportedSettings.push({ id: 'backup-libri-esclusi', valore: excluded });
     // Blob separati: niente stringa JSON gigantesca con tutti i libri in memoria.
     const parts = ['{"formato":"skooling","versione":1,"creatoIl":', JSON.stringify(new Date().toISOString()), ',"tipoBackup":', JSON.stringify(mode), ',"libriEsclusi":', JSON.stringify(excluded), ',"stores":{'];

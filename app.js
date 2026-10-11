@@ -1,4 +1,5 @@
 // Coordinamento dell'applicazione e interfaccia principale.
+import { DriveSync } from './drive-sync.js';
 import { schoolQuiet } from './routine-model.js';
 import { Routine } from './routine.js';
 import { Studio } from './studio.js';
@@ -167,14 +168,33 @@ function makeBookCard(book) {
     cover = `<img src="${url}" alt="Copertina di ${escapeHtml(book.titolo)}">`;
   }
   article.innerHTML = `<button type="button" class="book-open"><div class="book-cover">${cover}</div><div class="book-info"><strong>${escapeHtml(book.titolo)}</strong><span>${escapeHtml(book.materia)} · Riprendi da pagina ${book.ultimaPagina || 1}</span></div></button><button type="button" class="card-menu" aria-label="Azioni per ${escapeHtml(book.titolo)}">⋯</button><div class="card-actions" hidden><button type="button" data-edit>Rinomina e materia</button><button type="button" data-delete class="danger-text">Elimina libro</button></div>`;
-  article.querySelector('.book-open').addEventListener('click', () => openBook(book.id, book.ultimaPagina));
+  article.querySelector('.book-open').addEventListener('click', () => book.blob instanceof Blob ? openBook(book.id, book.ultimaPagina) : attachBookPDF(book));
+  if (!(book.blob instanceof Blob)) article.querySelector('.book-info span').textContent = 'Collega PDF su questo dispositivo';
   article.querySelector('.card-menu').addEventListener('click', () => { const menu = article.querySelector('.card-actions'); menu.hidden = !menu.hidden; });
   article.querySelector('[data-edit]').addEventListener('click', () => openBookDialog(book));
   article.querySelector('[data-delete]').addEventListener('click', () => deleteBook(book));
   return article;
 }
 
+function attachBookPDF(book) {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/pdf,.pdf';
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0]; if (!file) return;
+    showProgress('Collego il PDF', 'Conservo le scritte già sincronizzate…', .2);
+    try {
+      const cover = await extractPdfCover(file);
+      const current = await DB.get('libri', book.id);
+      if (!current) throw Error('Il libro è stato eliminato. Riprova dalla libreria.');
+      await DB.put('libri', { ...current, blob: file, copertina: cover });
+      await renderLibrary(); notify('PDF collegato. Le scritte sono conservate.');
+    } catch (error) { notify(error.message, true); } finally { hideProgress(); }
+  }); input.click();
+}
+
 async function openBook(id, page = 1, evidenzia = '') {
+  const book = await DB.get('libri', id);
+  if (book && !(book.blob instanceof Blob)) { attachBookPDF(book); return; }
+
   showProgress('Apro il libro', 'Preparo la pagina…', 0.25);
   try {
     PDFViewer.setDrawWithFinger(document.querySelector('#global-finger-draw').checked);
@@ -520,6 +540,7 @@ function bindSettings() {
     const [file] = event.target.files;
     if (!file) return;
     if (!confirm('Importando il backup sostituirai i dati presenti su questo dispositivo. Continuare?')) { event.target.value = ''; return; }
+    document.dispatchEvent(new Event('skooling:backup-importing'));
     showProgress('Importo il backup', 'Tieni aperta l’app durante l’importazione.', 0);
     try {
       await DB.importBackup(file, (value) => showProgress('Importo il backup', value < 0.85 ? 'Leggo e controllo libri e quaderni…' : 'Completo il ripristino…', value));
@@ -676,6 +697,12 @@ async function start() {
       window.dispatchEvent(new Event('resize'));
     });
     await Routine.init({ notify });
+    await DriveSync.init();
+    document.addEventListener('skooling:sync-applied', async () => {
+      await orario.carica();
+      const active = document.querySelector('.view.active')?.id;
+      if (active) navigate(active);
+    });
     navigate('routine');
     await registerServiceWorker();
   } catch (error) {
