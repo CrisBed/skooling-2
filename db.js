@@ -1,3 +1,4 @@
+import { importBackupStaged } from './backup-import.js';
 // Persistenza locale di Skooling. Nessun dato lascia il dispositivo.
 export const DB_NAME = 'skooling2-db';
 export const DB_VERSION = 6;
@@ -272,26 +273,9 @@ export const DB = {
   },
 
   async importBackup(file, onProgress = () => {}) {
-    let parsed;
-    try {
-      parsed = validateBackup(JSON.parse(await file.text()));
-    } catch (error) {
-      if (error instanceof SyntaxError) throw new Error('Il file scelto non è un backup di Skooling valido.');
-      throw error;
-    }
-    const decoded = {};
-    // Un backup piu' vecchio non ha gli archivi aggiunti dopo: restano vuoti.
-    for (const name of STORE_NAMES) decoded[name] = decodeValue(parsed.stores[name] ?? []);
-    const database = await openDatabase();
-    const transaction = database.transaction(STORE_NAMES, 'readwrite');
-    for (const name of STORE_NAMES) {
-      const store = transaction.objectStore(name);
-      store.clear();
-      for (const value of decoded[name]) store.put(value);
-    }
-    await transactionDone(transaction);
-    onProgress(1);
-    return parsed;
+    // Preparazione incrementale e sostituzione atomica: compatibile con i
+    // backup storici, senza JSON.parse(file.text()) da molti gigabyte.
+    return importBackupStaged(file, await openDatabase(), STORE_NAMES, STORE_NAMES_STORICI, onProgress);
   },
 
   async storageStatus() {

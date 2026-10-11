@@ -513,9 +513,9 @@ function bindSettings() {
     const [file] = event.target.files;
     if (!file) return;
     if (!confirm('Importando il backup sostituirai i dati presenti su questo dispositivo. Continuare?')) { event.target.value = ''; return; }
-    showProgress('Importo il backup', 'Controllo il file…', 0.1);
+    showProgress('Importo il backup', 'Tieni aperta l’app durante l’importazione.', 0);
     try {
-      await DB.importBackup(file, (value) => showProgress('Importo il backup', 'Ricostruisco il tuo archivio…', value));
+      await DB.importBackup(file, (value) => showProgress('Importo il backup', value < 0.85 ? 'Leggo e controllo libri e quaderni…' : 'Completo il ripristino…', value));
       notify('Backup importato. Skooling si riavvia.');
       setTimeout(() => location.reload(), 900);
     } catch (error) {
