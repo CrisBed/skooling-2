@@ -1,3 +1,4 @@
+import { canonical } from './sync-model.js';
 import { syncSnapshot, applySync } from './sync-storage.js';
 import { importBackupStaged } from './backup-import.js';
 // Persistenza locale. Drive è facoltativo e non trasferisce i PDF.
@@ -215,6 +216,20 @@ export function selectBackupBooks(books, annotations, mode = 'completo') {
 }
 
 export const DB = {
+  async saveMindMap(value, expected) {
+    const database = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = database.transaction('materiali', 'readwrite'), store = tx.objectStore('materiali');
+      let conflict = false;
+      const request = store.get(value.id);
+      request.onsuccess = () => {
+        if (canonical(request.result || null) !== expected) { conflict = true; tx.abort(); return; }
+        store.put(value);
+      };
+      tx.oncomplete = () => resolve(value);
+      tx.onerror = tx.onabort = () => reject(Error(conflict ? 'La mappa è cambiata in un’altra finestra. Chiudi e riaprila prima di salvare.' : 'Salvataggio interrotto. La mappa precedente è conservata.'));
+    });
+  },
   async syncSnapshot() { return syncSnapshot(await openDatabase()); },
   async applySync(expected, merged, profile, device, canApply) { return applySync(await openDatabase(), expected, merged, profile, device, canApply); },
 
