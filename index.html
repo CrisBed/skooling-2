@@ -193,8 +193,11 @@
             <p id="persistence-copy" class="small-copy"></p>
           </article>
           <article class="settings-card">
-            <span class="card-label">Sicurezza</span><h2>Backup completo</h2>
-            <p>Salva libri, annotazioni, quaderni e compiti in un unico file.</p>
+            <span class="card-label">Sicurezza</span><h2>Backup</h2>
+            <label for="backup-mode">Cosa vuoi salvare?</label>
+            <select id="backup-mode"><option value="essenziale" selected>Essenziale · il mio lavoro</option><option value="completo">Completo · tutti i libri</option></select>
+            <p id="backup-mode-copy">Conserva tutti i quaderni, le scritte, i materiali, i risultati e le routine. Include i PDF dei libri annotati; gli altri libri vanno reimportati dopo il ripristino.</p>
+            <div id="backup-missing" hidden><strong>Libri da reimportare</strong><p>Il backup ripristinato non conteneva questi PDF:</p><ul id="backup-missing-list"></ul></div>
             <div class="button-row"><button id="export-backup" class="button primary" type="button">Esporta backup</button><label class="button secondary file-button"><input id="import-backup" type="file" hidden>Importa backup</label></div>
           </article>
           <article class="settings-card">

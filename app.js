@@ -498,12 +498,19 @@ function bindSettings() {
     PDFViewer.setDrawWithFinger(finger.checked);
     notebooks.setDrawWithFinger(finger.checked);
   });
+  const backupMode = document.querySelector('#backup-mode');
+  backupMode.addEventListener('change', () => {
+    document.querySelector('#backup-mode-copy').textContent = backupMode.value === 'completo'
+      ? 'Conserva tutti i dati, compresi i PDF dei libri senza scritte. Utile prima di cambiare tablet.'
+      : 'Conserva tutti i quaderni, le scritte, i materiali, i risultati e le routine. Include i PDF dei libri annotati; gli altri libri vanno reimportati dopo il ripristino.';
+  });
   document.querySelector('#export-backup').addEventListener('click', async () => {
-    showProgress('Creo il backup', 'Raccolgo tutti i dati…', 0);
+    const mode = backupMode.value;
+    showProgress('Creo il backup', 'Raccolgo i dati scelti…', 0);
     try {
-      const backup = await DB.exportBackup((value) => showProgress('Creo il backup', 'Raccolgo tutti i dati…', value));
+      const backup = await DB.exportBackup((value) => showProgress('Creo il backup', 'Raccolgo i dati scelti…', value), { mode });
       const date = new Date().toISOString().slice(0, 10);
-      downloadBlob(backup, `Skooling-backup-${date}.skooling`);
+      downloadBlob(backup, `Skooling-backup-${mode}-${date}.skooling`);
       notify('Backup pronto. Conservalo in un posto sicuro.');
     } catch {
       notify('Il backup non è riuscito. Controlla lo spazio e riprova.', true);
@@ -529,6 +536,16 @@ function bindSettings() {
 
 async function updateStorage() {
   try {
+    const missing = (await DB.get('impostazioni', 'backup-libri-esclusi'))?.valore || [];
+    const books = await DB.getAll('libri');
+    const present = new Set(books.map(book => book.id));
+    const remaining = missing.filter(book => !present.has(book.id));
+    const list = document.querySelector('#backup-missing-list');
+    list.replaceChildren(...remaining.map(book => { const li = document.createElement('li'); li.textContent = `${book.titolo}${book.materia ? ' · ' + book.materia : ''} `;
+      const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.className = 'button secondary'; dismiss.textContent = 'Già reimportato';
+      dismiss.addEventListener('click', async () => { const saved = (await DB.get('impostazioni', 'backup-libri-esclusi'))?.valore || []; await DB.put('impostazioni', { id: 'backup-libri-esclusi', valore: saved.filter(item => item.id !== book.id) }); await updateStorage(); });
+      li.append(dismiss); return li; }));
+    document.querySelector('#backup-missing').hidden = !remaining.length;
     const status = await DB.storageStatus();
     const percent = status.quota ? Math.min(100, status.usage / status.quota * 100) : 0;
     document.querySelector('#storage-bar').style.width = `${percent}%`;

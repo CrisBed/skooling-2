@@ -203,6 +203,16 @@ async function transactionDone(transaction) {
   });
 }
 
+export function selectBackupBooks(books, annotations, mode = 'completo') {
+  if (!['completo', 'essenziale'].includes(mode)) throw new Error('Tipo di backup non valido.');
+  const written = new Set(annotations.map(item => item.idLibro));
+  return {
+    books: books.filter(book => mode === 'completo' || written.has(book.id)),
+    excluded: books.filter(book => mode === 'essenziale' && !written.has(book.id))
+      .map(book => ({ id: book.id, titolo: book.titolo || 'Libro', materia: book.materia || '' })),
+  };
+}
+
 export const DB = {
   async init() {
     await openDatabase();
@@ -252,14 +262,25 @@ export const DB = {
     await transactionDone(transaction);
   },
 
-  async exportBackup(onProgress = () => {}) {
+  async exportBackup(onProgress = () => {}, { mode = 'completo' } = {}) {
+    const books = await this.getAll('libri');
+    const annotations = await this.getAll('annotazioni');
+    const selected = selectBackupBooks(books, annotations, mode);
+    const settings = await this.getAll('impostazioni');
+    const previous = settings.find(item => item.id === 'backup-libri-esclusi')?.valore || [];
+    const present = new Set(books.map(book => book.id));
+    const excluded = [...new Map([
+      ...previous.filter(book => !present.has(book.id)), ...selected.excluded,
+    ].map(book => [book.id, book])).values()];
+    const exportedSettings = settings.filter(item => item.id !== 'backup-libri-esclusi');
+    if (excluded.length) exportedSettings.push({ id: 'backup-libri-esclusi', valore: excluded });
     // Blob separati: niente stringa JSON gigantesca con tutti i libri in memoria.
-    const parts = ['{"formato":"skooling","versione":1,"creatoIl":', JSON.stringify(new Date().toISOString()), ',"stores":{'];
+    const parts = ['{"formato":"skooling","versione":1,"creatoIl":', JSON.stringify(new Date().toISOString()), ',"tipoBackup":', JSON.stringify(mode), ',"libriEsclusi":', JSON.stringify(excluded), ',"stores":{'];
     for (let index = 0; index < STORE_NAMES.length; index++) {
       if (index) parts.push(',');
       const name = STORE_NAMES[index];
       parts.push(JSON.stringify(name), ':[');
-      const rows = await this.getAll(name);
+      const rows = name === 'libri' ? selected.books : name === 'annotazioni' ? annotations : name === 'impostazioni' ? exportedSettings : await this.getAll(name);
       for (let row = 0; row < rows.length; row++) {
         if (row) parts.push(',');
         await appendBackupValue(rows[row], parts);
