@@ -2,7 +2,7 @@ import {DrawingSurface, downloadBlob} from './strumenti.js';
 const canvas=document.querySelector('#canvas'), state=document.querySelector('#stato');
 const log=[],errors=[],checks=[];let moves=0,commits=0,mode='skooling',raw=null,rawCount=0;
 function add(item){log.push({modalita:mode,ms:Math.round(performance.now()),...item});if(log.length>2000)log.shift();document.querySelector('#eventi').textContent=log.slice(-12).map(x=>JSON.stringify(x)).join('\n');}
-const surface=new DrawingSurface(canvas,{onChange(elements){commits++;state.textContent=`Tratti registrati: ${elements.length} · salvataggi simulati: ${commits}`;}});
+const surface=new DrawingSurface(canvas,{preferStylusTouch:false,onChange(elements){commits++;state.textContent=`Tratti registrati: ${elements.length} · salvataggi simulati: ${commits}`;}});
 surface.setTool('penna');surface.setDrawWithFinger(false);
 // La prova diretta usa soltanto cerchi e segmenti Canvas, senza pressione,
 // filtri di distanza, cronologia, gesti o salvataggi del motore Skooling.

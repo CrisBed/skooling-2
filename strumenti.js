@@ -703,6 +703,13 @@ function togliDalFoglio(elemento) {
 export class DrawingSurface {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
+    // Su iPad i Touch Events stylus hanno superato la prova hardware dei
+    // contatti rapidi, mentre i Pointer Events perdevano puntini e lettere.
+    // Scegliere un solo flusso prima del primo contatto evita tratti doppi.
+    const nav = globalThis.navigator;
+    this.preferStylusTouch = options.preferStylusTouch ?? Boolean(nav &&
+      (/iPad/.test(nav.userAgent) || (/Macintosh/.test(nav.userAgent) && nav.maxTouchPoints > 1)));
+
     this.context = canvas.getContext('2d');
     this.elements = [];
     this.tool = 'penna';
@@ -743,10 +750,33 @@ export class DrawingSurface {
   }
 
   bindEvents() {
-    this.canvas.addEventListener('pointerdown', (event) => this.pointerDown(event));
-    this.canvas.addEventListener('pointermove', (event) => this.pointerMove(event));
-    this.canvas.addEventListener('pointerup', (event) => this.pointerUp(event));
-    this.canvas.addEventListener('pointercancel', (event) => this.pointerUp(event));
+    for (const [type, method] of Object.entries({
+      pointerdown: 'pointerDown', pointermove: 'pointerMove',
+      pointerup: 'pointerUp', pointercancel: 'pointerUp',
+    })) {
+      this.canvas.addEventListener(type, (event) => {
+        if (this.preferStylusTouch && event.pointerType === 'pen') return;
+        this[method](event);
+      });
+    }
+    for (const [type, method] of Object.entries({
+      touchstart: 'pointerDown', touchmove: 'pointerMove',
+      touchend: 'pointerUp', touchcancel: 'pointerUp',
+    })) {
+      this.canvas.addEventListener(type, (event) => {
+        if (!this.preferStylusTouch) return;
+        for (const touch of event.changedTouches) {
+          // Le dita restano nel flusso Pointer Events per zoom e spostamento.
+          if (touch.touchType !== 'stylus') continue;
+          this[method]({
+            pointerType: 'pen', pointerId: `stylus:${touch.identifier}`,
+            clientX: touch.clientX, clientY: touch.clientY,
+            pressure: touch.force, fromStylusTouch: true,
+            preventDefault: () => event.preventDefault(),
+          });
+        }
+      }, { passive: false });
+    }
     this.canvas.addEventListener('contextmenu', (event) => event.preventDefault());
   }
 
@@ -947,7 +977,7 @@ export class DrawingSurface {
     event.preventDefault();
     // Se il puntatore è già stato rilasciato la cattura non serve e non deve
     // interrompere il tratto: si prosegue senza.
-    try { this.canvas.setPointerCapture?.(event.pointerId); } catch { /* puntatore già chiuso */ }
+    try { if (!event.fromStylusTouch) this.canvas.setPointerCapture?.(event.pointerId); } catch { /* puntatore già chiuso */ }
     const point = this.pointFromEvent(event);
     if (this.tool === 'simbolo') {
       const element = {
