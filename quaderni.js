@@ -456,6 +456,7 @@ export class NotebookManager {
   }
 
   async open(id, pageNumber = 1) {
+    if(DB.session?.busy)return this.notify('Attendi la fine dell’aggiornamento dei dispositivi prima di aprire il quaderno.');
     this.current = await DB.get('quaderni', id);
     if (!this.current) return this.notify('Questo quaderno non è più disponibile.', true);
     this.pages = (await DB.getAll('paginequaderno')).filter((page) => page.idQuaderno === id).sort((a, b) => a.numero - b.numero);

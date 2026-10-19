@@ -9,7 +9,7 @@ export function installDraftSession(db, {enabled, stores, snapshot, importFile,l
  const check=()=>{if(blocked)throw Error('Aggiornamento in corso. Attendi un momento e riprova.');};
  db.approved=approved;
  const pin=async()=>{if(!baseReady){baseRevision=(await approved.get('impostazioni','sync-approved-state'))?.valore?.revision||null;baseReady=true;}return baseRevision;};
- db.session={temporary:enabled,pin,get baseRevision(){return baseRevision;},startTracking(){tracking=true;},get dirty(){return userChanges&&[...changes.values()].some(m=>m.size);},get generation(){return generation;},freeze(value){blocked=value;},reset(revision){changes.clear();userChanges=false;generation++;baseRevision=revision??null;baseReady=revision!==undefined;},exportChanges(){return clone(changes);}};
+ db.session={temporary:enabled,pin,get baseRevision(){return baseRevision;},startTracking(){tracking=true;},get dirty(){return userChanges&&[...changes.values()].some(m=>m.size);},get generation(){return generation;},get busy(){return blocked;},freeze(value){blocked=value;},reset(revision){changes.clear();userChanges=false;generation++;baseRevision=revision??null;baseReady=revision!==undefined;},exportChanges(){return clone(changes);}};
  if(!enabled){
   for(const method of ['put','putMany','delete','deleteWhere','putIfUnchanged','saveMindMap','importBackup']){
    if(!approved[method])continue;

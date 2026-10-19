@@ -192,6 +192,7 @@ function attachBookPDF(book) {
 }
 
 async function openBook(id, page = 1, evidenzia = '') {
+  if(DriveSync.isBusy())return notify('Attendi la fine dell’aggiornamento dei dispositivi prima di aprire il libro.');
   const book = await DB.get('libri', id);
   if (book && !(book.blob instanceof Blob)) { attachBookPDF(book); return; }
 
