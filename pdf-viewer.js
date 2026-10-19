@@ -1,3 +1,4 @@
+import {createNumbering,printedToPhysical,physicalLabel} from './book-pages.js';
 // Lettore PDF basato sulla copia locale di PDF.js.
 import * as pdfjsLib from './vendor/pdf.mjs';
 import { DB } from './db.js';
@@ -116,7 +117,10 @@ class Reader {
     document.querySelector('#prev-page').addEventListener('click', () => this.goTo(this.indietro()));
     document.querySelector('#next-page').addEventListener('click', () => this.goTo(this.avanti()));
     document.querySelector('#reader-two-pages').addEventListener('click', () => this.toggleDoppia());
-    this.pageNumberInput.addEventListener('change', () => this.goTo(Number(this.pageNumberInput.value)));
+    const jump=()=>this.goToPrinted(this.pageNumberInput.value).catch(error=>{this.updatePageNumbers();document.dispatchEvent(new CustomEvent('skooling:message',{detail:{text:error.message,error:true}}));});
+    this.pageNumberInput.addEventListener('change',jump);
+    this.pageNumberInput.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();jump();}});
+    document.querySelector('#align-book-pages').addEventListener('click',()=>this.alignPageNumbers());
     document.querySelector('#fit-page').addEventListener('click', () => this.setZoom(1));
     document.querySelector('#toggle-thumbnails').addEventListener('click', (event) => {
       const panel = document.querySelector('#thumbnail-panel');
@@ -197,8 +201,13 @@ class Reader {
       if (sessione !== this.sessione) { await task.destroy().catch(() => {}); return; }
       this.caricamento = task;
       this.pdf = documento;
+      const savedNumbers=await DB.get('impostazioni','book-numbering-'+libro.id);
+      const labels=await documento.getPageLabels().catch(()=>null);
+      if(sessione!==this.sessione)return;
+      try{this.numbering=createNumbering(labels,documento.numPages,savedNumbers?.valore||null);}catch{this.numbering=createNumbering(labels,documento.numPages);}
+      this.requestedPageNumber=null;
       this.pageNumber = this.allinea(Math.max(1, Math.min(Number(page || this.book.ultimaPagina || 1), this.pdf.numPages)));
-      this.pageNumberInput.max = this.pdf.numPages;
+      this.pageNumberInput.removeAttribute('max');
       document.querySelector('#page-total').textContent = `di ${this.pdf.numPages}`;
       this.buildThumbnails();
       await this.renderPage();
@@ -267,12 +276,34 @@ class Reader {
   // La pagina di destra, oppure null quando quella di sinistra sta da sola.
   destra() { return this.doppia ? paginaDestraLibro(this.pageNumber, this.pdf.numPages) : null; }
 
-  async goTo(number) {
+  async goToPrinted(value){
+    if(!this.pdf)return;
+    const physical=printedToPhysical(value,this.numbering);
+    await this.goTo(physical,{printedTarget:physical});
+  }
+
+  updatePageNumbers(){
+    if(!this.pdf||!this.numbering)return;
+    const focus=[this.pageNumber,this.destra()].includes(this.requestedPageNumber)?this.requestedPageNumber:this.pageNumber;
+    this.pageNumberInput.value=physicalLabel(focus,this.numbering);
+    const last=physicalLabel(this.pdf.numPages,this.numbering);
+    document.querySelector('#page-total').textContent=this.numbering.known?(last?'di '+last:''):`Foglio PDF ${this.pageNumber} di ${this.pdf.numPages} · allinea i numeri`;
+  }
+
+  alignPageNumbers(){
+    if(!this.pdf)return;
+    const session=this.sessione,bookId=this.book.id,physical=this.pageNumber;
+    const d=document.createElement('dialog');d.innerHTML=`<form class="dialog-form"><h2>Allinea le pagine del libro</h2><p>Guarda la pagina ${this.doppia?'a sinistra':'aperta'}. Quale numero leggi stampato sul libro?</p><label>Numero stampato<input name="printed" type="number" min="1" step="1" required inputmode="numeric"></label><p class="small-copy">Se è una copertina, chiudi e usa le frecce per raggiungere una pagina numerata. Questa corrispondenza viene ricordata solo per questo libro; scritte e appunti restano dove sono.</p><p class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Annulla</button><button class="button primary">Salva corrispondenza</button></div></form>`;
+    d.querySelector('[data-close]').onclick=()=>d.close();d.onclose=()=>d.remove();d.querySelector('form').onsubmit=async event=>{event.preventDefault();const button=d.querySelector('.primary');button.disabled=true;try{if(session!==this.sessione)throw Error('Il libro è cambiato. Riapri l’allineamento.');const anchor={physical,printed:Number(new FormData(event.target).get('printed'))},numbering=createNumbering(null,this.pdf.numPages,anchor);await DB.put('impostazioni',{id:'book-numbering-'+bookId,valore:anchor});if(session===this.sessione){this.numbering=numbering;this.requestedPageNumber=null;this.updatePageNumbers();this.buildThumbnails();}d.close();}catch(error){d.querySelector('.form-error').textContent=error.message;}finally{button.disabled=false;}};document.body.append(d);d.showModal();
+  }
+
+  async goTo(number,{printedTarget=null}={}) {
     if (!this.pdf) return;
+    this.requestedPageNumber=printedTarget;
     const next = this.allinea(Math.max(1, Math.min(this.pdf.numPages, Math.round(number || 1))));
     if (next === this.pageNumber && this.canvas.width) {
       // Già su questa coppia: il campo torna a mostrare la pagina di sinistra.
-      this.pageNumberInput.value = this.pageNumber;
+      this.updatePageNumbers();
       return;
     }
     this.pageNumber = next;
@@ -382,7 +413,7 @@ class Reader {
       if (destra) await this.renderOne(1, destra, available, annotations);
       else this.drawing2.setElements([]);
       this.setDrawWithFinger(this.drawing.drawWithFinger);
-      this.pageNumberInput.value = this.pageNumber;
+      this.updatePageNumbers();
       document.querySelector('#zoom-label').textContent = `${Math.round(this.zoom * 100)}%`;
       this.updateThumbnailSelection();
       // Solo il segnaposto, non tutto il libro: vedi il commento su `letture`.
@@ -595,7 +626,8 @@ class Reader {
       button.type = 'button';
       button.className = 'thumbnail';
       button.dataset.page = String(page);
-      button.innerHTML = `<canvas width="120" height="150" aria-hidden="true"></canvas><span>Pagina ${page}</span>`;
+      button.innerHTML = '<canvas width="120" height="150" aria-hidden="true"></canvas><span></span>';
+      button.querySelector('span').textContent=physicalLabel(page,this.numbering)?'Pagina '+physicalLabel(page,this.numbering):'Foglio PDF '+page;
       button.addEventListener('click', () => this.goTo(page));
       fragment.append(button);
     }
@@ -651,7 +683,7 @@ class Reader {
     if (!this.book) return;
     const esistente = (await this.bookmarks()).find((item) => item.pagina === this.pageNumber);
     document.querySelector('#bookmark-dialog-title').textContent = esistente ? 'Segnalibro della pagina' : 'Nuovo segnalibro';
-    document.querySelector('#bookmark-dialog-page').textContent = `Pagina ${this.pageNumber} di “${this.book.titolo}”.`;
+    document.querySelector('#bookmark-dialog-page').textContent = `Pagina ${physicalLabel(this.pageNumber,this.numbering)||'PDF '+this.pageNumber} di “${this.book.titolo}”.`;
     document.querySelector('#bookmark-note').value = esistente?.nota || '';
     this.paginaSegnalibro = this.pageNumber;
     document.querySelector('#bookmark-dialog').showModal();
