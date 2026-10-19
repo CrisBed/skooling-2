@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {cleanMaterial,filterMaterials,safeStudyLink} from '../lesson-materials-model.js';
+const input={title:'Triangoli',date:'2026-10-19',section:'Geometria',url:'https://youtu.be/example',text:'Appunti',topic:'t',subject:'matematica',kind:'link'};
+test('lesson is indexed by date subject topic and section',()=>{const m=cleanMaterial(input);assert.equal(m.materia,'matematica');assert.equal(m.argomento,'t');assert.equal(m.dataLezione,'2026-10-19');assert.equal(m.sezione,'Geometria');});
+test('rejects unsafe URLs and impossible dates',()=>{for(const url of ['javascript:alert(1)','data:text/html,test','http://example.com','https://user:secret@example.com'])assert.equal(safeStudyLink(url),'');assert.throws(()=>cleanMaterial({...input,date:'2026-02-30'}),/data valida/);});
+test('search finds transcription and subsection within a chosen day',()=>{const m=cleanMaterial(input);assert.equal(filterMaterials([m],'geometria','2026-10-19').length,1);assert.equal(filterMaterials([m],'appunti').length,1);assert.equal(filterMaterials([m],'','2026-10-18').length,0);});

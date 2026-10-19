@@ -4,7 +4,7 @@ export class DriveAPI {
  async request(url,options={}){
   const response=await this.fetcher(url,{...options,headers:{...options.headers,Authorization:`Bearer ${this.token}`},signal:AbortSignal.timeout(45000)});
   if(response.status===401)throw Error('Accesso Google scaduto. Premi Ricollega Google.');
-  if(!response.ok)throw Error(response.status===403?'Google non ha autorizzato questa operazione. Controlla account e permessi.':`Drive non disponibile (${response.status}). Riprova più tardi.`);
+  if(!response.ok){const error=Error(response.status===403?'Google non ha autorizzato questa operazione. Controlla account e permessi.':`Drive non disponibile (${response.status}). Riprova più tardi.`);error.status=response.status;throw error;}
   return response;
  }
  async profile(){const r=await this.request('https://www.googleapis.com/oauth2/v3/userinfo');const p=await r.json();if(!p.sub||!p.email)throw Error('Google non ha restituito un account valido.');return{sub:p.sub,email:p.email};}

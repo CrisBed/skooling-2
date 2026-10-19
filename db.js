@@ -1,9 +1,13 @@
+import {readBackup} from './backup-reader.js';
+import {installDraftSession} from './draft-session.js';
+import {isIPad,deviceIdentity} from './device-policy.js';
+import {replaceApproved} from './approved-storage.js';
 import { canonical } from './sync-model.js';
 import { syncSnapshot, applySync } from './sync-storage.js';
 import { importBackupStaged } from './backup-import.js';
 // Persistenza locale. Drive è facoltativo e non trasferisce i PDF.
 export const DB_NAME = 'skooling2-db';
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 export const STORE_NAMES = [
   'libri',
   'annotazioni',
@@ -23,7 +27,7 @@ export const STORE_NAMES = [
 // L'indice del testo dei libri si ricostruisce leggendo di nuovo i PDF, quindi
 // non entra nel backup: ci farebbe crescere il file di molti megabyte senza
 // aggiungere niente che non si possa rifare.
-export const STORE_NAMES_DERIVATI = ['indicelibri'];
+export const STORE_NAMES_DERIVATI = ['indicelibri','recuperosync'];
 
 // Gli archivi che ci sono da sempre: un backup deve averli tutti, altrimenti
 // non e' un backup buono. Quelli aggiunti dopo, come le foto dell'album,
@@ -61,6 +65,7 @@ const STORE_OPTIONS = {
   // a ogni voltata di pagina.
   letture: { keyPath: 'id' },
   indicelibri: { keyPath: 'id' },
+  recuperosync: {keyPath:'id'},
 };
 
 let openPromise;
@@ -216,6 +221,7 @@ export function selectBackupBooks(books, annotations, mode = 'completo') {
 }
 
 export const DB = {
+  async replaceApproved(expected,incoming,state){return replaceApproved(await openDatabase(),STORE_NAMES,expected,incoming,state);},
   async saveMindMap(value, expected) {
     const database = await openDatabase();
     return new Promise((resolve, reject) => {
@@ -327,3 +333,20 @@ export const DB = {
     return { persisted, usage, quota, remaining, low: quota > 0 && (remaining / quota < 0.15 || remaining < 250 * 1024 * 1024) };
   },
 };
+
+// Wrap persistent writes with an edit identity: atomic replacement can detect
+// even a same-size image change made by another tab during a transfer.
+for(const method of ['put','putMany','putIfUnchanged','saveMindMap']) {
+ const original=DB[method];if(!original)continue;
+ DB[method]=async function(...args){const index=method==='saveMindMap'?0:1;
+  if(method==='putMany')args[index]=args[index].map(row=>({...row,_editId:crypto.randomUUID()}));
+  else args[index]={...args[index],_editId:crypto.randomUUID()};
+  return original.apply(this,args);
+ };
+}
+async function importVolatile(file,onProgress=()=>{}){
+ const data=Object.fromEntries(STORE_NAMES.map(n=>[n,[]])),seen=new Set();
+ await readBackup(file,{requiredStores:STORE_NAMES_STORICI,onProgress,onRow:async(name,row)=>{if(STORE_NAMES.includes(name)&&!(name==='impostazioni'&&row.id.startsWith('sync-'))){const key=JSON.stringify([name,row.id]);if(seen.has(key))throw Error('Il backup contiene voci duplicate. Nessuna prova è stata sostituita.');seen.add(key);data[name].push(row);}}});
+ return data;
+}
+if(typeof window!=='undefined')installDraftSession(DB,{enabled:!isIPad()||localStorage.getItem(DB_NAME+'-secondary')==='1',deferTracking:true,lockName:DB_NAME+'-approved-transfer',stores:STORE_NAMES,snapshot:canonical,importFile:importVolatile});

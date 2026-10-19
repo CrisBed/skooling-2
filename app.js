@@ -593,6 +593,7 @@ let aggiornamentoInSospeso = false;
 document.addEventListener('skooling:map-closed', verificaAggiornamentoInSospeso);
 
 function applicaAggiornamento() {
+  if(DB.session?.dirty||DriveSync.isBusy()||document.querySelector('dialog[open]')){aggiornamentoInSospeso=true;return;}
   // Se c'è un libro o un quaderno aperto si aspetta: il lavoro è già salvato,
   // ma ricaricare sotto le mani mentre si scrive sarebbe sgradevole.
   if (document.querySelector('.mind-map-dialog[open]') || !document.querySelector('#progress-overlay').hidden) { aggiornamentoInSospeso = true; return; }
@@ -602,10 +603,11 @@ function applicaAggiornamento() {
     return;
   }
   if (!schoolQuiet()) notify('Skooling si è aggiornato.');
-  setTimeout(() => { if (document.querySelector('.mind-map-dialog[open]')) { aggiornamentoInSospeso = true; return; } location.reload(); }, 800);
+  setTimeout(() => { if(DB.session?.dirty||DriveSync.isBusy()||document.querySelector('dialog[open]')){aggiornamentoInSospeso=true;return;} if (document.querySelector('.mind-map-dialog[open]')) { aggiornamentoInSospeso = true; return; } location.reload(); }, 800);
 }
 
 export function verificaAggiornamentoInSospeso() {
+  if(DB.session?.dirty||DriveSync.isBusy()||document.querySelector('dialog[open]'))return;
   if (document.querySelector('.mind-map-dialog[open]')) return;
   if (!aggiornamentoInSospeso || document.body.classList.contains('workspace-open') || !document.querySelector('#progress-overlay').hidden) return;
   aggiornamentoInSospeso = false;
